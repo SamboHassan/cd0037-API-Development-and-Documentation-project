@@ -67,32 +67,245 @@ One note before you delve into your tasks: for each endpoint, you are expected t
 8. Create a `POST` endpoint to get questions to play the quiz. This endpoint should take a category and previous question parameters and return a random questions within the given category, if provided, and that is not one of the previous questions.
 9. Create error handlers for all expected errors including 400, 404, 422, and 500.
 
-## Documenting your Endpoints
+## API Documentation
 
-You will need to provide detailed documentation of your API endpoints including the URL, request parameters, and the response body. Use the example below as a reference.
+### Getting Started
+- Base URL: This App is currently in develoment stage. It is not hosted on a web server. It can only be run locally. The backend is hosted at the default localhost address: `http://127.0.0.1:5000/` which is set as a proxy in the frontend configuration.
+- Authentication: This version of the application does not require authentication or API keys.
 
-### Documentation Example
-
-`GET '/api/v1.0/categories'`
-
-- Fetches a dictionary of categories in which the keys are the ids and the value is the corresponding string of the category
-- Request Arguments: None
-- Returns: An object with a single key, `categories`, that contains an object of `id: category_string` key: value pairs.
-
-```json
+### Error Handling
+- Errors are returned as JSON object in the following format:
+```
 {
-  "1": "Science",
-  "2": "Art",
-  "3": "Geography",
-  "4": "History",
-  "5": "Entertainment",
-  "6": "Sports"
+    "success": False, 
+    "error": 400,
+    "message": "bad request"
+}
+```
+The API will return four error types when requests fail:
+- 400: Bad Request
+- 404: Resource Not Found
+- 422: Not Processable
+- 500: Internal Server error 
+
+### Endpoints
+#### GET/categories
+- General: Returns all the available categories
+- URI: `curl http://127.0.0.1:5000/categories`
+- Response:
+
+```
+{
+    categories: {
+        1: "Science",
+        2: "Art",
+        3: "Geography",
+        4: "History",
+        5: "Entertainment",
+        6: "Sports"
+    },
+    success: true
+}
+```
+### GET /questions
+- General: Returns a list of paginated questions, 10 questions per page.
+- URI: http://127.0.0.1:5000/questions
+- Request Arguments: limit, page
+- Sample: `curl http://127.0.0.1:5000/questions`
+- Response:
+```
+{
+    "categories":{
+      "1":"Science",
+      "2":"Art",
+      "3":"Geography",
+      "4":"History",
+      "5":"Entertainment",
+      "6":"Sports"
+    },
+    "questions":[
+      {
+        "answer":"Tom Cruise",
+        "category":5,
+        "difficulty":4,
+        "id":4,
+        "question":"What actor did author Anne Rice first denounce, then praise in the role of her beloved Lestat?"
+      },
+      {
+        "answer":"Maya Angelou",
+        "category":4,
+        "difficulty":2,
+        "id":5,
+        "question":"Whose autobiography is entitled 'I Know Why the Caged Bird Sings'?"
+      },
+      {
+        "answer":"Edward Scissorhands",
+        "category":5,
+        "difficulty":3,
+        "id":6,
+        "question":"What was the title of the 1990 fantasy directed by Tim Burton about a young man with multi-bladed appendages?"
+      },
+      {
+        "answer":"Muhammad Ali",
+        "category":4,
+        "difficulty":1,
+        "id":9,
+        "question":"What boxer's original name is Cassius Clay?"
+      },
+      {
+        "answer":"Brazil",
+        "category":6,
+        "difficulty":3,
+        "id":10,
+        "question":"Which is the only team to play in every soccer World Cup tournament?"
+      },
+      {
+        "answer":"Uruguay",
+        "category":6,
+        "difficulty":4,
+        "id":11,
+        "question":"Which country won the first ever soccer World Cup in 1930?"
+      },
+      {
+        "answer":"George Washington Carver",
+        "category":4,
+        "difficulty":2,
+        "id":12,
+        "question":"Who invented Peanut Butter?"
+      },
+      {
+        "answer":"Lake Victoria",
+        "category":3,
+        "difficulty":2,
+        "id":13,
+        "question":"What is the largest lake in Africa?"
+      },
+      {
+        "answer":"The Palace of Versailles",
+        "category":3,
+        "difficulty":3,
+        "id":14,
+        "question":"In which royal palace would you find the Hall of Mirrors?"
+      },
+      {
+        "answer":"Agra",
+        "category":3,
+        "difficulty":2,
+        "id":15,
+        "question":"The Taj Mahal is located in which Indian city?"
+      }
+    ],
+      "selected_page":1,
+      "success":true,
+      "total_questions":22
+}
+```
+
+### POST /questions
+- General: Insert or create a new question
+- URI: http://127.0.0.1:5000/questions
+- Request Arguments: Question, answer, category, and difficulty
+- Sample: `curl http://127.0.0.1:5000/questions -X POST -H "Content-Type: application/json" -d '{"question": "What is the colour of sky", "answer": "blue","difficulty": 1,"category": 2}'`
+
+- JSON File format:
+```
+{
+  "id": 10,
+  "question": "What is the colour of sky"
+  "answer": "blue",
+  "category": "2",
+  "difficulty": 1,    
+}
+```
+- Sample Response:
+```
+{
+  "question": {
+      "answer": "blue",
+      "category": "2",
+      "difficulty": 1,
+      "id": 17,
+      "question": "What is the colour of sky"
+  },
+  "success": true
+}
+```
+
+### POST /search
+- General: Find a question by searching through a string pattern within the `question` body
+- URI: http://127.0.0.1:5000/search
+- Sample: `curl -X POST http://127.0.0.1:5000/search`
+- Request Arguments: searchTerm 
+- Response:
+```
+{
+  "success": true,
+  "questions": []
+}
+```
+
+### DELETE /questions/<int:question_id>
+
+- General: Delete a question with a given ID
+- URI: http://127.0.0.1:5000/questions/<int:question_id>
+- Sample: `curl -X DELETE http://127.0.0.1:5000/questions/27`
+- Request Arguments: None
+- Response:
+```
+{
+  "deleted_id": 27, 
+  "success": true
+}
+```
+
+### GET /categories/<int:category_id>/questions
+- General: Returns a list of all questions in a given category, specified by a category ID
+- URI: http://127.0.0.1:5000/categories/<int:category_id>/questions
+- Sample: `curl http://127.0.0.1:5000/categories/1/questions`
+- Response:
+```
+{
+  "questions": [
+    {
+      "answer": "The Liver", 
+      "category": 1, 
+      "difficulty": 4, 
+      "id": 20, 
+      "question": "What is the heaviest organ in the human body?"
+    }, 
+    {
+      "answer": "Alexander Fleming", 
+      "category": 1, 
+      "difficulty": 3, 
+      "id": 21, 
+      "question": "Who discovered penicillin?"
+    }, 
+    {
+      "answer": "Blood", 
+      "category": 1, 
+      "difficulty": 4, 
+      "id": 22, 
+      "question": "Hematology is a branch of medicine involving the study of what?"
+    }
+  ], 
+  "success": true
+}
+```
+
+### POST /quizzes
+- General: Returns a list of questions to play the quiz
+- URI: http://127.0.0.1:5000/quizzes
+- Sample: `curl -X POST http://127.0.0.1:5000/quizzes`
+- Request Arguments: quiz_category, previous_questions
+- Response:
+```
+{
+  "success": true,
+  "question": []
 }
 ```
 
 ## Testing
-
-Write at least one test for the success and at least one error behavior of each endpoint using the unittest library.
 
 To deploy the tests, run
 

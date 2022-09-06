@@ -1,6 +1,10 @@
 .vscode
 __pycache__
 venv
+.env
+.config
+backend/flask/
+frontend/node_modules/
 
 # OS generated files #
 ######################
@@ -11,5 +15,5 @@ venv
 .Trashes
 ehthumbs.db
 Thumbs.db
-env/
-frontend/node_modules/
+
+

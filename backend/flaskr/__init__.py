@@ -1,102 +1,226 @@
-import os
+"""
+Reference:
+The following codebases were carefully studied to learn and practice some of the 
+concept applied here.
+https://github.com/Rashotech/udacity-trivia-api
+https://github.com/Uchechukwu10/Trivia-App-Udacity
+
+"""
+
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
+import json
 
 from models import setup_db, Question, Category
 
 QUESTIONS_PER_PAGE = 10
+
 
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__)
     setup_db(app)
 
-    """
-    @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
-    """
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-    """
-    @TODO: Use the after_request decorator to set Access-Control-Allow
-    """
+    @app.after_request
+    def after_request(response):
+        """This set up cors and allow '*' for origins"""
 
-    """
-    @TODO:
-    Create an endpoint to handle GET requests
-    for all available categories.
-    """
+        response.headers.add(
+            "Access-Control-Allow-Headers", "Content-Type,Authorization,true"
+        )
+        response.headers.add(
+            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+        )
+        return response
 
+    @app.route("/categories")
+    def categories():
+        """This define a GET endpoint to fetch all available categories"""
+        categories = Category.query.order_by(Category.type).all()
 
-    """
-    @TODO:
-    Create an endpoint to handle GET requests for questions,
-    including pagination (every 10 questions).
-    This endpoint should return a list of questions,
-    number of total questions, current category, categories.
+        if len(categories) == 0:
+            abort(404)
 
-    TEST: At this point, when you start the application
-    you should see questions and categories generated,
-    ten questions per page and pagination at the bottom of the screen for three pages.
-    Clicking on the page numbers should update the questions.
-    """
+        return jsonify(
+            {
+                "success": True,
+                "categories": {category.id: category.type for category in categories},
+            }
+        )
 
-    """
-    @TODO:
-    Create an endpoint to DELETE question using a question ID.
+    @app.route("/questions")
+    def questions():
+        """Define a GET requests to all paginated questions"""
 
-    TEST: When you click the trash icon next to a question, the question will be removed.
-    This removal will persist in the database and when you refresh the page.
-    """
+        items_limit = request.args.get("limit", QUESTIONS_PER_PAGE, type=int)
+        selected_page = request.args.get("page", 1, type=int)
+        current_index = selected_page - 1
 
-    """
-    @TODO:
-    Create an endpoint to POST a new question,
-    which will require the question and answer text,
-    category, and difficulty score.
+        question_count = Question.query.count()
 
-    TEST: When you submit a question on the "Add" tab,
-    the form will clear and the question will appear at the end of the last page
-    of the questions list in the "List" tab.
-    """
+        questions = (
+            Question.query.order_by(Question.id)
+            .limit(items_limit)
+            .offset(current_index * items_limit)
+            .all()
+        )
 
-    """
-    @TODO:
-    Create a POST endpoint to get questions based on a search term.
-    It should return any questions for whom the search term
-    is a substring of the question.
+        if len(questions) == 0:
+            abort(404)
 
-    TEST: Search by any phrase. The questions list will update to include
-    only question that include that string within their question.
-    Try using the word "title" to start.
-    """
+        categories = Category.query.order_by(Category.type).all()
 
-    """
-    @TODO:
-    Create a GET endpoint to get questions based on category.
+        return jsonify(
+            {
+                "success": True,
+                "categories": {category.id: category.type for category in categories},
+                "questions": [question.format() for question in questions],
+                "total_questions": question_count,
+                "selected_page": selected_page,
+            }
+        )
 
-    TEST: In the "List" tab / main screen, clicking on one of the
-    categories in the left column will cause only questions of that
-    category to be shown.
-    """
+    @app.route("/questions/<int:question_id>", methods=["DELETE"])
+    def delete_question(question_id):
+        """This define a DELETE endpoint to delete a question using its id"""
 
-    """
-    @TODO:
-    Create a POST endpoint to get questions to play the quiz.
-    This endpoint should take category and previous question parameters
-    and return a random questions within the given category,
-    if provided, and that is not one of the previous questions.
+        question = Question.query.filter(Question.id == question_id).one_or_none()
 
-    TEST: In the "Play" tab, after a user selects "All" or a category,
-    one question at a time is displayed, the user is allowed to answer
-    and shown whether they were correct or not.
-    """
+        if question:
+            question.delete()
+            return jsonify({"success": True, "deleted_id": question_id})
+        else:
+            return json.dumps({"success": False, "error": "Not found"}), 404
 
-    """
-    @TODO:
-    Create error handlers for all expected errors
-    including 404 and 422.
-    """
+    @app.route("/questions", methods=["POST"])
+    def create_question():
+        """Define a POST endpoint to create a new question"""
+
+        data = dict(request.form or request.json or request.data)
+
+        new_question = Question(
+            question=data.get("question"),
+            answer=data.get("answer"),
+            category=data.get("category"),
+            difficulty=data.get("difficulty", 1),
+        )
+
+        if (
+            not new_question.question
+            or not new_question.answer
+            or not new_question.category
+        ):
+            return json.dumps({"success": False, "error": "Missing parameter."}), 400
+        else:
+            try:
+                new_question.insert()
+                return (
+                    json.dumps({"success": True, "question_id": new_question.id})
+                ), 201
+
+            except Exception as e:
+                print(e)
+                return (
+                    json.dumps({"success": False, "error": "An error has occured"})
+                ), 500
+
+    @app.route("/questions/search", methods=["POST"])
+    def search_question():
+        """This define a POST endpoint to get questions based on a search term."""
+        data = dict(request.form or request.json or request.data)
+        search_term = data.get("searchTerm")
+
+        if search_term:
+            questions = Question.query.filter(
+                Question.question.ilike(f"%{search_term}%")
+            ).all()
+            return jsonify(
+                {
+                    "success": True,
+                    "questions": [question.format() for question in questions],
+                }
+            )
+        else:
+            return json.dumps({"success": False, "error": "Missing Parameters"}), 400
+
+    @app.route("/categories/<int:category_id>/questions", methods=["GET"])
+    def get_questions_by_category(category_id):
+        """This define a GET endpoint to get question based on category"""
+        try:
+            questions = Question.query.filter(Question.category == category_id).all()
+            return jsonify(
+                {
+                    "success": True,
+                    "questions": [question.format() for question in questions],
+                }
+            )
+        except Exception as e:
+            print(e)
+            return json.dumps({"success": False, "error": "An error has occurred"}), 500
+
+    @app.route("/quizzes", methods=["POST"])
+    def retrieve_quiz_question():
+        """This define a POST endpoint to get questions to play the quiz"""
+
+        data = dict(request.form or request.json or request.data)
+        category = data.get("quiz_category")
+        previous_questions = data.get("previous_questions", [])
+
+        if not data.get("quiz_category"):
+            return json.dumps({"success": False, "error": "Missing params."}), 400
+        else:
+            if category["id"] == 0:
+                selected_question = (
+                    Question.query.filter(Question.id.notin_(previous_questions))
+                    .limit(1)
+                    .one_or_none()
+                )
+            else:
+                selected_question = (
+                    Question.query.filter_by(category=category["id"])
+                    .filter(Question.id.notin_(previous_questions))
+                    .limit(1)
+                    .one_or_none()
+                )
+
+            if selected_question:
+                return jsonify(
+                    {"success": True, "question": selected_question.format()}
+                )
+            else:
+                return (
+                    json.dumps({"success": False, "error": "Question not found."}),
+                    404,
+                )
+
+    @app.errorhandler(400)
+    def bad_request(error):
+        return jsonify({"success": False, "error": 400, "message": "Bad request"}), 400
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"success": False, "error": "404", "message": "Not found"}), 404
+
+    @app.errorhandler(422)
+    def unprocessable(error):
+        return (
+            jsonify(
+                {"success": False, "error": "422", "message": "Unprocessable entity"}
+            ),
+            422,
+        )
+
+    @app.errorhandler(500)
+    def unprocessable(error):
+        return (
+            jsonify(
+                {"success": False, "error": 500, "message": "Internal Server error"}
+            ),
+            500,
+        )
 
     return app
-
